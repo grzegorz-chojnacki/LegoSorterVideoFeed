@@ -6,13 +6,13 @@ import grpc
 from generated.Messages_pb2 import ImageRequest, ListOfBoundingBoxes
 from generated import LegoAnalysis_pb2_grpc as LegoAnalysis
 
-
 STATE = Enum('STATE', ['Continue', 'Stop'])
 PATH = 'bricks/Bricks_wide-04.mp4'
 WINDOW_NAME = 'Frame'
 KEY_Q = 113
 
-FRAME_SIZE = (1920//3, 1080//3)
+FRAME_SIZE = (640, 640)
+FRAME_MARGIN = 30
 FRAME_DELAY = 60
 
 
@@ -36,6 +36,14 @@ class RemoteLegoBrickAnalyzer(object):
 analyzer = RemoteLegoBrickAnalyzer()
 
 
+def crop(image):
+    height, width, _ = image.shape
+    h_crop = FRAME_MARGIN
+    w_crop = ((width - height) // 2) + FRAME_MARGIN
+    frame = image[h_crop:-h_crop, w_crop:-w_crop]
+    return cv2.resize(frame.copy(), FRAME_SIZE)
+
+
 def process_video(path):
     vidcap = cv2.VideoCapture(path)
 
@@ -44,9 +52,12 @@ def process_video(path):
         if not success:
             break
 
-        analyzer.detectAndClassifyBricks(image)
+        frame = crop(image)
 
-        frame = cv2.resize(image.copy(), FRAME_SIZE)
+        # Send request
+        analyzer.detectAndClassifyBricks(frame)
+
+        # Show frame in the meantime
         cv2.imshow(WINDOW_NAME, frame)
         cv2.moveWindow(WINDOW_NAME, 1920, 0)
         key = cv2.waitKey(FRAME_DELAY)
@@ -57,9 +68,10 @@ def process_video(path):
     return STATE.Continue
 
 
-while True:
-    state = process_video(PATH)
-    if state is state.Stop:
-        break
+if __name__ == '__main__':
+    while True:
+        state = process_video(PATH)
+        if state is state.Stop:
+            break
 
-cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
