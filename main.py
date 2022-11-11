@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import cv2
-from enum import Enum
 import grpc
-from generated.Messages_pb2 import ImageRequest, ListOfBoundingBoxes
+from enum import Enum
 from generated import LegoAnalysis_pb2_grpc as LegoAnalysis
+from generated.Messages_pb2 import ImageRequest, ListOfBoundingBoxes
+
 
 STATE = Enum('STATE', ['Continue', 'Stop'])
 PATH = 'bricks/Bricks_wide-04.mp4'
@@ -13,7 +14,7 @@ KEY_Q = 113
 
 FRAME_SIZE = (640, 640)
 FRAME_MARGIN = 30
-FRAME_DELAY = 60
+FRAME_DELAY = 120
 
 
 class RemoteLegoBrickAnalyzer(object):
@@ -27,13 +28,10 @@ class RemoteLegoBrickAnalyzer(object):
         return ImageRequest(image=cv2.imencode('.jpg', image)[1].tobytes())
 
     def detectBricks(self, image):
-        return self.stub.DetectBricks(self.prepareImageMessage(image))
+        return self.stub.DetectBricks.future(self.prepareImageMessage(image))
 
     def detectAndClassifyBricks(self, image):
-        return self.stub.DetectAndClassifyBricks(self.prepareImageMessage(image))
-
-
-analyzer = RemoteLegoBrickAnalyzer()
+        return self.stub.DetectAndClassifyBricks.future(self.prepareImageMessage(image))
 
 
 def crop(image):
@@ -45,6 +43,9 @@ def crop(image):
 
 
 def process_video(path):
+    global frame_sent
+    global analyzer
+
     vidcap = cv2.VideoCapture(path)
 
     while True:
@@ -56,6 +57,8 @@ def process_video(path):
 
         # Send request
         analyzer.detectAndClassifyBricks(frame)
+        frame_sent += 1
+        print(f'Sent frame #{frame_sent}')
 
         # Show frame in the meantime
         cv2.imshow(WINDOW_NAME, frame)
@@ -69,6 +72,9 @@ def process_video(path):
 
 
 if __name__ == '__main__':
+    analyzer = RemoteLegoBrickAnalyzer()
+    frame_sent = 0
+
     while True:
         state = process_video(PATH)
         if state is state.Stop:
