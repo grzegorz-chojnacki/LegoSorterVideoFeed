@@ -13,25 +13,25 @@ FRAME_DELAY = 60
 
 
 def process_video(path):
-  vidcap = cv2.VideoCapture(path)
+    vidcap = cv2.VideoCapture(path)
 
-  while True:
-    success, image = vidcap.read()
-    if not success: break
+    while True:
+        success, image = vidcap.read()
+        if not success: break
 
-    frame = cv2.resize(image.copy(), FRAME_SIZE)
+        frame = cv2.resize(image.copy(), FRAME_SIZE)
 
-    cv2.imshow(WINDOW_NAME, frame)
-    cv2.moveWindow(WINDOW_NAME, 1920, 0)
-    key = cv2.waitKey(FRAME_DELAY)
+        cv2.imshow(WINDOW_NAME, frame)
+        cv2.moveWindow(WINDOW_NAME, 1920, 0)
+        key = cv2.waitKey(FRAME_DELAY)
 
-    if key is KEY_Q: return STATE.Stop
+        if key is KEY_Q: return STATE.Stop
 
-  return STATE.Continue
+    return STATE.Continue
 
 
 while True:
-  state = process_video(PATH)
-  if state is state.Stop: break
+    state = process_video(PATH)
+    if state is state.Stop: break
 
 cv2.destroyAllWindows()
