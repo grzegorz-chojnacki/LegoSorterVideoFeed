@@ -11,7 +11,7 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
-import Messages_pb2 as Messages__pb2
+import generated.Messages_pb2 as Messages__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12LegoAnalysis.proto\x12\x08\x61nalysis\x1a\x0eMessages.proto2\x9f\x01\n\x0cLegoAnalysis\x12\x41\n\x0c\x44\x65tectBricks\x12\x14.common.ImageRequest\x1a\x1b.common.ListOfBoundingBoxes\x12L\n\x17\x44\x65tectAndClassifyBricks\x12\x14.common.ImageRequest\x1a\x1b.common.ListOfBoundingBoxesB)\n\x14\x63om.lsorter.analysisB\x11LegoAnalysisProtob\x06proto3')

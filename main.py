@@ -3,7 +3,7 @@
 import cv2
 import grpc
 from enum import Enum
-from generated import LegoAnalysis_pb2_grpc as LegoAnalysis
+from generated import LegoSorter_pb2_grpc as LegoSorter
 from generated.Messages_pb2 import ImageRequest, ListOfBoundingBoxes
 
 
@@ -17,21 +17,18 @@ FRAME_MARGIN = 30
 FRAME_DELAY = 120
 
 
-class RemoteLegoBrickAnalyzer(object):
+class RemoteLegoBrickSorter(object):
     def __init__(self):
         self.host = 'localhost'
         self.server_port = 50051
         self.channel = grpc.insecure_channel(f'{self.host}:{self.server_port}')
-        self.stub = LegoAnalysis.LegoAnalysisStub(self.channel)
+        self.stub = LegoSorter.LegoSorterStub(self.channel)
 
     def prepareImageMessage(self, image):
         return ImageRequest(image=cv2.imencode('.jpg', image)[1].tobytes())
 
-    def detectBricks(self, image):
-        return self.stub.DetectBricks.future(self.prepareImageMessage(image))
-
-    def detectAndClassifyBricks(self, image):
-        return self.stub.DetectAndClassifyBricks.future(self.prepareImageMessage(image))
+    def processNextImage(self, image):
+        return self.stub.processNextImage.future(self.prepareImageMessage(image))
 
 
 def crop(image):
@@ -44,7 +41,7 @@ def crop(image):
 
 def process_video(path):
     global frame_sent
-    global analyzer
+    global sorter
 
     vidcap = cv2.VideoCapture(path)
 
@@ -56,7 +53,7 @@ def process_video(path):
         frame = crop(image)
 
         # Send request
-        analyzer.detectAndClassifyBricks(frame)
+        sorter.processNextImage(frame)
         frame_sent += 1
         print(f'Sent frame #{frame_sent}')
 
@@ -72,12 +69,12 @@ def process_video(path):
 
 
 if __name__ == '__main__':
-    analyzer = RemoteLegoBrickAnalyzer()
+    sorter = RemoteLegoBrickSorter()
     frame_sent = 0
 
     while True:
         state = process_video(PATH)
-        if state is state.Stop:
+        if state is STATE.Stop:
             break
 
     cv2.destroyAllWindows()
