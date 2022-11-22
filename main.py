@@ -2,6 +2,8 @@
 
 import cv2
 import grpc
+import time
+import threading
 from enum import Enum
 from generated import LegoSorter_pb2_grpc as LegoSorter
 from generated.Messages_pb2 import ImageRequest, ListOfBoundingBoxes
@@ -14,7 +16,7 @@ KEY_Q = 113
 
 FRAME_SIZE = (640, 640)
 FRAME_MARGIN = 30
-FRAME_DELAY = 120
+FRAME_DELAY = 300
 
 
 class RemoteLegoBrickSorter(object):
@@ -27,8 +29,19 @@ class RemoteLegoBrickSorter(object):
     def prepareImageMessage(self, image):
         return ImageRequest(image=cv2.imencode('.jpg', image)[1].tobytes())
 
-    def processNextImage(self, image):
-        return self.stub.processNextImage.future(self.prepareImageMessage(image))
+    def processNextImageSync(self, image, frame_n):
+        start = time.time()
+        result = self.stub.processNextImage(self.prepareImageMessage(image))
+        end = time.time()
+        print(f'Processing frame #{frame_n} took {(end - start) * 1000} ms')
+        return result
+
+    async def processNextImageAsync(self, image, frame_n):
+        start = time.time()
+        result = await self.stub.processNextImage.future(self.prepareImageMessage(image))
+        end = time.time()
+        print(f'Processing frame #{frame_n} took {(end - start) * 1000} ms')
+        return result
 
 
 def crop(image):
@@ -38,43 +51,60 @@ def crop(image):
     frame = image[h_crop:-h_crop, w_crop:-w_crop]
     return cv2.resize(frame.copy(), FRAME_SIZE)
 
-
-def process_video(path):
-    global frame_sent
-    global sorter
-
-    vidcap = cv2.VideoCapture(path)
+def process_video_sync():
+    sorter = RemoteLegoBrickSorter()
+    video = cv2.VideoCapture(PATH)
+    frame_n = 0
 
     while True:
-        success, image = vidcap.read()
+        frame_n += 1
+        success, image = video.read()
         if not success:
             break
 
+        if frame_n < 30:
+            continue
+
         frame = crop(image)
 
-        # Send request
-        sorter.processNextImage(frame)
-        frame_sent += 1
-        print(f'Sent frame #{frame_sent}')
+        sorter.processNextImageSync(frame, frame_n)
 
         # Show frame in the meantime
         cv2.imshow(WINDOW_NAME, frame)
-        cv2.moveWindow(WINDOW_NAME, 1920, 0)
+        cv2.moveWindow(WINDOW_NAME, 0, 0)
         key = cv2.waitKey(FRAME_DELAY)
 
         if key is KEY_Q:
-            return STATE.Stop
-
-    return STATE.Continue
-
-
-if __name__ == '__main__':
-    sorter = RemoteLegoBrickSorter()
-    frame_sent = 0
-
-    while True:
-        state = process_video(PATH)
-        if state is STATE.Stop:
             break
 
     cv2.destroyAllWindows()
+
+
+def process_video_async():
+    sorter = RemoteLegoBrickSorter()
+    video = cv2.VideoCapture(PATH)
+    frame_n = 0
+    threads = []
+
+    while True:
+        frame_n += 1
+        success, image = video.read()
+
+        if not success:
+            break
+
+        if frame_n < 30:
+            continue
+
+        t = threading.Thread(target=lambda: sorter.processNextImageSync(crop(image), frame_n))
+        threads.append(t)
+        t.start()
+        alive = len(list(filter(lambda t: t.is_alive(), threads)))
+        dead = len(list(filter(lambda t: not t.is_alive(), threads)))
+        print(f'Sent frame #{frame_n:03} | Threads alive/dead: {alive}/{dead}')
+        time.sleep(FRAME_DELAY / 1000)
+
+
+if __name__ == '__main__':
+    # process_video_sync()
+    process_video_async()
