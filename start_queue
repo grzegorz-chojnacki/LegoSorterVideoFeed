@@ -1,0 +1,6 @@
+#!/bin/bash
+
+sudo systemctl start rabbitmq.service
+rabbitmq-plugins enable rabbitmq_management
+brave http://manjaro:15672/ &
+disown
